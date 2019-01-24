@@ -4,7 +4,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// カードの動作を定義します。
+/// カードの基底クラスです。
+/// カードの効果とIDを振るためには、このクラスを継承して下さい。
 /// </summary>
 public class Card : MonoBehaviour {
 
@@ -51,6 +52,20 @@ public class Card : MonoBehaviour {
 	/// </summary>
 	[SerializeField]
 	private bool _isOpened = false;
+
+	/// <summary>
+	/// このカードのIDを返します。
+	/// </summary>
+	/// <returns></returns>
+	public virtual int GetCardID() {
+		return -1;
+	}
+
+	/// <summary>
+	/// カードの効果を発動させます。
+	/// </summary>
+	public virtual void DoCard() {
+	}
 
 	/// <summary>
 	/// 初期状態で表面から裏面に切り替えます。
@@ -173,7 +188,7 @@ public class Card : MonoBehaviour {
 	/// このカードが表になっているかどうかを返します。
 	/// </summary>
 	/// <returns>表になっているかどうか</returns>
-	public bool isOpened() {
+	public bool IsOpened() {
 		return this._isOpened;
 	}
 
