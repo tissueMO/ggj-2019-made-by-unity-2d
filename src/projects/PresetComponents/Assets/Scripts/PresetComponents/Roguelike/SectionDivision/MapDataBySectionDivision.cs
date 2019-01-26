@@ -208,24 +208,64 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 							for(int x = room.LinkVector2Int.x; x < room.CrossVector2Ints[dir].x; x++) {
 								this.TileData[x, room.LinkVector2Int.y] = GeneratedMapTile.Aisle;
 							}
+
+							// 通路を追加
+							var linkRight = new RoomLink() {
+								CrossCount = 2,
+								Start = new Vector2Int(room.LinkVector2Int.x, room.LinkVector2Int.y),
+								End = new Vector2Int(room.CrossVector2Ints[dir].x + 1, room.LinkVector2Int.y),
+								SplitType = RoomLink.SplitDirection.Vertical,
+								IsParentLink = false,
+							};
+							this.Links.Add(linkRight);
 							break;
 
 						case Direction.Left:
 							for(int x = room.LinkVector2Int.x; room.CrossVector2Ints[dir].x < x; x--) {
 								this.TileData[x, room.LinkVector2Int.y] = GeneratedMapTile.Aisle;
 							}
+
+							// 通路を追加
+							var linkLeft = new RoomLink() {
+								CrossCount = 2,
+								Start = new Vector2Int(room.CrossVector2Ints[dir].x, room.LinkVector2Int.y),
+								End = new Vector2Int(room.LinkVector2Int.x, room.LinkVector2Int.y),
+								SplitType = RoomLink.SplitDirection.Vertical,
+								IsParentLink = false,
+							};
+							this.Links.Add(linkLeft);
 							break;
 
 						case Direction.Bottom:
 							for(int y = room.LinkVector2Int.y; y < room.CrossVector2Ints[dir].y; y++) {
 								this.TileData[room.LinkVector2Int.x, y] = GeneratedMapTile.Aisle;
 							}
+
+							// 通路を追加
+							var linkBottom = new RoomLink() {
+								CrossCount = 2,
+								Start = new Vector2Int(room.LinkVector2Int.x, room.LinkVector2Int.y),
+								End = new Vector2Int(room.LinkVector2Int.x, room.CrossVector2Ints[dir].y),
+								SplitType = RoomLink.SplitDirection.Horizontal,
+								IsParentLink = false,
+							};
+							this.Links.Add(linkBottom);
 							break;
 
 						case Direction.Top:
 							for(int y = room.LinkVector2Int.y; room.CrossVector2Ints[dir].y < y; y--) {
 								this.TileData[room.LinkVector2Int.x, y] = GeneratedMapTile.Aisle;
 							}
+
+							// 通路を追加
+							var linkTop = new RoomLink() {
+								CrossCount = 2,
+								Start = new Vector2Int(room.LinkVector2Int.x, room.CrossVector2Ints[dir].y),
+								End = new Vector2Int(room.LinkVector2Int.x, room.LinkVector2Int.y),
+								SplitType = RoomLink.SplitDirection.Horizontal,
+								IsParentLink = false,
+							};
+							this.Links.Add(linkTop);
 							break;
 					}
 				}
@@ -233,8 +273,8 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 
 			// 3. 分割線に正しく接続できているか調べる
 			foreach(var link in this.Links) {
-				//if(link.CrossCount < 2) {
-				if(link.CrossCount < 1) {
+				if(link.CrossCount < 2) {
+					//if(link.CrossCount < 1) {
 					// 接続本数が２本未満だと、孤立した小部屋ができてしまうのでやり直し
 					this.Initialize(new Vector2Int(this.TileData.GetLength(0), this.TileData.GetLength(1)));
 					return false;
@@ -242,6 +282,7 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 			}
 
 			// 4. 分割線の両端を削る: 分割線の検証方向以外の方向に床がなければ逐次削っていく
+			Debug.Log($"分割線: {this.Links.Count}");
 			foreach(var link in this.Links) {
 				switch(link.SplitType) {
 					case RoomLink.SplitDirection.Horizontal:
@@ -372,21 +413,17 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 				for(int x = rect.xMin - 1; x < rect.xMax + 1; x++) {
 					if(0 <= x && 0 <= rect.yMin - 1 && this.TileData[x, rect.yMin - 1] == GeneratedMapTile.None) {
 						this.TileData[x, rect.yMin - 1] = GeneratedMapTile.Ceil;
-						Debug.Log($"Ceil: {x}, {rect.yMin - 1}");
 					}
 					if(0 <= x && rect.yMax < this.DungeonRect.height && this.TileData[x, rect.yMax] == GeneratedMapTile.None) {
 						this.TileData[x, rect.yMax] = GeneratedMapTile.Ceil;
-						Debug.Log($"Ceil: {x}, {rect.yMax}");
 					}
 				}
 				for(int y = rect.yMin - 1; y < rect.yMax + 1; y++) {
 					if(0 <= y && 0 <= rect.xMin - 1 && this.TileData[rect.xMin - 1, y] == GeneratedMapTile.None) {
 						this.TileData[rect.xMin - 1, y] = GeneratedMapTile.Ceil;
-						Debug.Log($"Ceil: {rect.xMin - 1}, {y}");
 					}
 					if(0 <= y && rect.xMax < this.DungeonRect.width && this.TileData[rect.xMax, y] == GeneratedMapTile.None) {
 						this.TileData[rect.xMax, y] = GeneratedMapTile.Ceil;
-						Debug.Log($"Ceil: {rect.xMax}, {y}");
 					}
 				}
 			}
@@ -396,60 +433,166 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 				int baseX = -1;
 				int baseY = -1;
 
-				if(link.SplitType == RoomLink.SplitDirection.Horizontal) {
-					baseY = link.Start.y;
-					rect = new RectInt(
-						link.Start.x,
-						baseY - RoomData.WallHeight,
-						link.End.x - link.Start.x,
-						1 + RoomData.WallHeight
-					);
-				} else {
-					baseX = link.Start.x;
-					rect = new RectInt(
-						link.Start.x,
-						link.Start.y,
-						1,
-						1 + link.End.y - link.Start.y
-					);
-				}
-
-				for(int x = rect.xMin - 1; x < rect.xMax + 1; x++) {
+				if(link.IsParentLink) {
 					if(link.SplitType == RoomLink.SplitDirection.Horizontal) {
-						if(this.TileData[x, baseY] == GeneratedMapTile.None) {
-							continue;
+						baseY = link.Start.y;
+						rect = new RectInt(
+							link.Start.x,
+							baseY - RoomData.WallHeight,
+							link.End.x - link.Start.x,
+							1 + RoomData.WallHeight
+						);
+
+						int maxX = rect.xMax;
+						int maxY = rect.yMax;
+						for(int x = rect.xMin - 1; x < rect.xMax + 1; x++) {
+							bool isBreak = false;
+							if(0 < x && this.TileData[x, baseY] == GeneratedMapTile.None) {
+								maxX = x;
+								isBreak = true;
+							}
+
+							if(0 <= x && 0 <= rect.yMin - 1 && this.TileData[x, rect.yMin - 1] == GeneratedMapTile.None) {
+								this.TileData[x, rect.yMin - 1] = GeneratedMapTile.Ceil;
+							}
+							if(0 <= x && rect.yMax < this.DungeonRect.height && this.TileData[x, rect.yMax] == GeneratedMapTile.None) {
+								this.TileData[x, rect.yMax] = GeneratedMapTile.Ceil;
+							}
+
+							if(isBreak) {
+								break;
+							}
+						}
+						for(int y = rect.yMin - 1; y < rect.yMax + 1; y++) {
+							if(0 <= y && 0 <= rect.xMin - 1 && this.TileData[rect.xMin - 1, y] == GeneratedMapTile.None) {
+								this.TileData[rect.xMin - 1, y] = GeneratedMapTile.Ceil;
+							}
+							if(0 <= y && maxX < this.DungeonRect.width && this.TileData[maxX, y] == GeneratedMapTile.None) {
+								this.TileData[maxX, y] = GeneratedMapTile.Ceil;
+							}
+						}
+					} else {
+						baseX = link.Start.x;
+						rect = new RectInt(
+							baseX,
+							link.Start.y,
+							link.End.x - link.Start.x + 1,
+							1 + link.End.y - link.Start.y
+						);
+
+						int maxX = rect.xMax;
+						int maxY = rect.yMax;
+						for(int y = rect.yMin - 1; y < rect.yMax + 1; y++) {
+							bool isBreak = false;
+							if(0 < y && this.TileData[baseX, y] == GeneratedMapTile.None) {
+								maxY = y;
+								isBreak = true;
+							}
+
+							if(0 <= y && 0 <= rect.xMin - 1 && this.TileData[rect.xMin - 1, y] == GeneratedMapTile.None) {
+								this.TileData[rect.xMin - 1, y] = GeneratedMapTile.Ceil;
+							}
+							if(0 <= y && maxX < this.DungeonRect.width && this.TileData[maxX, y] == GeneratedMapTile.None) {
+								this.TileData[maxX, y] = GeneratedMapTile.Ceil;
+							}
+
+							if(isBreak) {
+								break;
+							}
+						}
+						for(int x = rect.xMin - 1; x < rect.xMax + 1; x++) {
+							if(0 <= x && 0 <= rect.yMin - 1 && this.TileData[x, rect.yMin - 1] == GeneratedMapTile.None) {
+								this.TileData[x, rect.yMin - 1] = GeneratedMapTile.Ceil;
+							}
+							if(0 <= x && rect.yMax < this.DungeonRect.height && this.TileData[x, rect.yMax] == GeneratedMapTile.None) {
+								this.TileData[x, maxY] = GeneratedMapTile.Ceil;
+							}
 						}
 					}
-
-					if(0 <= x && 0 <= rect.yMin - 1 && this.TileData[x, rect.yMin - 1] == GeneratedMapTile.None) {
-						this.TileData[x, rect.yMin - 1] = GeneratedMapTile.Ceil;
-						Debug.Log($"Ceil: {x}, {rect.yMin - 1}");
-					}
-					if(0 <= x && rect.yMax < this.DungeonRect.height && this.TileData[x, rect.yMax] == GeneratedMapTile.None) {
-						this.TileData[x, rect.yMax] = GeneratedMapTile.Ceil;
-						Debug.Log($"Ceil: {x}, {rect.yMax}");
-					}
-				}
-				for(int y = rect.yMin - 1; y < rect.yMax + 1; y++) {
+				} else {
 					if(link.SplitType == RoomLink.SplitDirection.Vertical) {
-						if(this.TileData[baseX, y] == GeneratedMapTile.None) {
-							continue;
-						}
-					}
+						baseY = link.Start.y;
+						rect = new RectInt(
+							link.Start.x,
+							baseY - RoomData.WallHeight,
+							link.End.x - link.Start.x,
+							1 + RoomData.WallHeight
+						);
 
-					if(0 <= y && 0 <= rect.xMin - 1 && this.TileData[rect.xMin - 1, y] == GeneratedMapTile.None) {
-						this.TileData[rect.xMin - 1, y] = GeneratedMapTile.Ceil;
-						Debug.Log($"Ceil: {rect.xMin - 1}, {y}");
-					}
-					if(0 <= y && rect.xMax < this.DungeonRect.width && this.TileData[rect.xMax, y] == GeneratedMapTile.None) {
-						this.TileData[rect.xMax, y] = GeneratedMapTile.Ceil;
-						Debug.Log($"Ceil: {rect.xMax}, {y}");
+						int maxX = rect.xMax;
+						int maxY = rect.yMax;
+						for(int x = rect.xMin - 1; x < rect.xMax + 1; x++) {
+							bool isBreak = false;
+							if(0 < x && this.TileData[x, baseY] == GeneratedMapTile.None) {
+								maxX = x;
+								isBreak = true;
+							}
+
+							if(0 <= x && 0 <= rect.yMin - 1 && this.TileData[x, rect.yMin - 1] == GeneratedMapTile.None) {
+								this.TileData[x, rect.yMin - 1] = GeneratedMapTile.Ceil;
+							}
+							if(0 <= x && rect.yMax < this.DungeonRect.height && this.TileData[x, rect.yMax] == GeneratedMapTile.None) {
+								this.TileData[x, rect.yMax] = GeneratedMapTile.Ceil;
+							}
+
+							if(isBreak) {
+								break;
+							}
+						}
+						for(int y = rect.yMin - 1; y < rect.yMax + 1; y++) {
+							if(0 <= y && 0 <= rect.xMin - 1 && this.TileData[rect.xMin - 1, y] == GeneratedMapTile.None) {
+								this.TileData[rect.xMin - 1, y] = GeneratedMapTile.Ceil;
+							}
+							if(0 <= y && maxX < this.DungeonRect.width && this.TileData[maxX, y] == GeneratedMapTile.None) {
+								this.TileData[maxX, y] = GeneratedMapTile.Ceil;
+							}
+						}
+					} else {
+						baseX = link.Start.x;
+						rect = new RectInt(
+							baseX,
+							link.Start.y,
+							link.End.x - link.Start.x + 1,
+							1 + link.End.y - link.Start.y
+						);
+
+						int maxX = rect.xMax;
+						int maxY = rect.yMax;
+						for(int y = rect.yMin - 1; y < rect.yMax + 1; y++) {
+							bool isBreak = false;
+							if(0 < y && this.TileData[baseX, y] == GeneratedMapTile.None) {
+								maxY = y;
+								isBreak = true;
+							}
+
+							if(0 <= y && 0 <= rect.xMin - 1 && this.TileData[rect.xMin - 1, y] == GeneratedMapTile.None) {
+								this.TileData[rect.xMin - 1, y] = GeneratedMapTile.Ceil;
+							}
+							if(0 <= y && maxX < this.DungeonRect.width && this.TileData[maxX, y] == GeneratedMapTile.None) {
+								this.TileData[maxX, y] = GeneratedMapTile.Ceil;
+							}
+
+							if(isBreak) {
+								break;
+							}
+						}
+						for(int x = rect.xMin - 1; x < rect.xMax + 1; x++) {
+							if(0 <= x && 0 <= rect.yMin - 1 && this.TileData[x, rect.yMin - 1] == GeneratedMapTile.None) {
+								this.TileData[x, rect.yMin - 1] = GeneratedMapTile.Ceil;
+							}
+							if(0 <= x && rect.yMax < this.DungeonRect.height && this.TileData[x, rect.yMax] == GeneratedMapTile.None) {
+								this.TileData[x, maxY] = GeneratedMapTile.Ceil;
+							}
+						}
 					}
 				}
 			}
 
 			// 8. プレイヤー１を配置
 			this.SetAutoPlayerPosition();
+
+			// 9. ゴールを配置
+			this.generateGoalLink();
 
 			// 正常に生成された
 			return true;
@@ -475,7 +618,9 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 		public bool RandomSplitArea(int baseRoomIndex, int splRate) {
 			int splVector2Int;
 			var newArea = new RectInt();
-			var newLink = new RoomLink();
+			var newLink = new RoomLink() {
+				IsParentLink = true,
+			};
 
 			// 分割元の小部屋で辺の長い方を見て分割する: 極端に狭い部屋が生成されすぎないようにする
 			if(this.Rooms[baseRoomIndex].AreaRange.width > this.Rooms[baseRoomIndex].AreaRange.height) {
@@ -653,6 +798,193 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 				if(cutFlag) {
 					// 現在のタイルを削る
 					this.TileData[checkTilePos.x, checkTilePos.y] = GeneratedMapTile.None;
+				}
+			}
+		}
+
+		/// <summary>
+		/// 指定した範囲のタイルが指定した種類のタイルだけで構成されているかどうかを調べます。
+		/// </summary>
+		/// <param name="rect">検証範囲</param>
+		/// <param name="tile">チェックタイル</param>
+		/// <returns></returns>
+		private bool isTileSameRange(RectInt rect, GeneratedMapBase.GeneratedMapTile tile) {
+			for(int x = rect.xMin; x < rect.xMax; x++) {
+				for(int y = rect.yMin; y < rect.yMax; y++) {
+					Debug.Log($"x={x}, y={y}");
+					if(this.TileData[x, y] != tile) {
+						return false;
+					}
+				}
+			}
+
+			return true;
+		}
+
+		/// <summary>
+		/// ゴールを生成します。
+		/// </summary>
+		private void generateGoalLink() {
+			while(true) {
+				int roomIndex = UnityEngine.Random.Range(0, this.Rooms.Count);
+				var room = this.Rooms[roomIndex];
+
+				// 各辺に対し、垂直な通路を作ったときにマップの端に到達するところを決める
+				int side = UnityEngine.Random.Range(0, 4);
+				int offset;
+				RectInt rect;
+				bool NG = false;
+				switch(side) {
+					case 0:
+						// 左
+						offset = UnityEngine.Random.Range(room.RoomRange.yMin + 2, room.RoomRange.yMax - 3);
+						rect = new RectInt(0, offset - 3, room.RoomRange.xMin - 1 - 1, 5);
+						if(!this.isTileSameRange(rect, GeneratedMapTile.None)) {
+							NG = true;
+							break;
+						}
+
+						// OKなら追加の通路生成
+						if(!NG) {
+							for(int x = rect.xMin; x <= rect.xMax + 1; x++) {
+								// 天井上
+								this.TileData[x, rect.yMin] = GeneratedMapTile.Ceil;
+
+								// 壁
+								for(int y = rect.yMin + 1; y <= rect.yMin + 2; y++) {
+									this.TileData[x, y] = GeneratedMapTile.Wall;
+								}
+
+								// 通路
+								this.TileData[x, offset] = GeneratedMapTile.Floor;
+
+								// 天井下
+								this.TileData[x, rect.yMax - 1] = GeneratedMapTile.Ceil;
+							}
+
+							// 通路の先端にゴール配置
+							var goal = Resources.Load<GameObject>("Prefabs/Map/Goal");
+							var tileContainer = GameObject.Find("MapTiles");
+							GameObject.Instantiate<GameObject>(
+								goal,
+								new Vector3(0, -offset, 0),
+								new Quaternion(),
+								tileContainer.transform
+							);
+						}
+						break;
+
+					case 1:
+						// 上
+						offset = UnityEngine.Random.Range(room.RoomRange.xMin + 1, room.RoomRange.xMax - 2);
+						rect = new RectInt(offset, 0, 3, room.RoomRange.yMin - 1 - 1);
+						if(!this.isTileSameRange(rect, GeneratedMapTile.None)) {
+							NG = true;
+							break;
+						}
+
+						// OKなら追加の通路生成
+						if(!NG) {
+							for(int y = rect.yMin; y <= rect.yMax + 3; y++) {
+								// 壁左
+								this.TileData[offset - 1, y] = GeneratedMapTile.Ceil;
+
+								// 通路
+								this.TileData[offset, y] = GeneratedMapTile.Floor;
+
+								// 壁左
+								this.TileData[offset + 1, y] = GeneratedMapTile.Ceil;
+							}
+
+							// 通路の先端にゴール配置
+							var goal = Resources.Load<GameObject>("Prefabs/Map/Goal");
+							var tileContainer = GameObject.Find("MapTiles");
+							GameObject.Instantiate<GameObject>(
+								goal,
+								new Vector3(offset, 0, 0),
+								new Quaternion(),
+								tileContainer.transform
+							);
+						}
+						break;
+
+					case 2:
+						// 右
+						offset = UnityEngine.Random.Range(room.RoomRange.yMin + 2, room.RoomRange.yMax - 3);
+						rect = new RectInt(room.RoomRange.xMax + 1, offset - 3, this.DungeonRect.xMax - room.RoomRange.xMax - 1, 5);
+						Debug.Log($"l={rect.x}, t={rect.y}, r={rect.xMax - 1}, b={rect.yMax - 1}");
+						if(!this.isTileSameRange(rect, GeneratedMapTile.None)) {
+							NG = true;
+							break;
+						}
+
+						// OKなら追加の通路生成
+						if(!NG) {
+							for(int x = rect.xMin - 1; x < rect.xMax; x++) {
+								// 天井上
+								this.TileData[x, rect.yMin] = GeneratedMapTile.Ceil;
+
+								// 壁
+								for(int y = rect.yMin + 1; y <= rect.yMin + 2; y++) {
+									this.TileData[x, y] = GeneratedMapTile.Wall;
+								}
+
+								// 通路
+								this.TileData[x, offset] = GeneratedMapTile.Floor;
+
+								// 天井下
+								this.TileData[x, rect.yMax - 1] = GeneratedMapTile.Ceil;
+							}
+
+							// 通路の先端にゴール配置
+							var goal = Resources.Load<GameObject>("Prefabs/Map/Goal");
+							var tileContainer = GameObject.Find("MapTiles");
+							GameObject.Instantiate<GameObject>(
+								goal,
+								new Vector3(this.DungeonRect.xMax - 1, -offset, 0),
+								new Quaternion(),
+								tileContainer.transform
+							);
+						}
+						break;
+
+					case 3:
+						// 下
+						offset = UnityEngine.Random.Range(room.RoomRange.xMin + 1, room.RoomRange.xMax - 2);
+						rect = new RectInt(offset, room.RoomRange.yMax + 1, 3, this.DungeonRect.yMax - room.RoomRange.yMax - 1);
+						if(!this.isTileSameRange(rect, GeneratedMapTile.None)) {
+							NG = true;
+							break;
+						}
+
+						// OKなら追加の通路生成
+						if(!NG) {
+							for(int y = rect.yMin - 1; y < rect.yMax; y++) {
+								// 壁左
+								this.TileData[offset - 1, y] = GeneratedMapTile.Ceil;
+
+								// 通路
+								this.TileData[offset, y] = GeneratedMapTile.Floor;
+
+								// 壁左
+								this.TileData[offset + 1, y] = GeneratedMapTile.Ceil;
+							}
+
+							// 通路の先端にゴール配置
+							var goal = Resources.Load<GameObject>("Prefabs/Map/Goal");
+							var tileContainer = GameObject.Find("MapTiles");
+							GameObject.Instantiate<GameObject>(
+								goal,
+								new Vector3(offset, -(this.DungeonRect.yMax - 1), 0),
+								new Quaternion(),
+								tileContainer.transform
+							);
+						}
+						break;
+				}
+
+				if(!NG) {
+					break;
 				}
 			}
 		}

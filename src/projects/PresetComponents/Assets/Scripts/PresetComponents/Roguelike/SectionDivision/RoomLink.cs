@@ -21,6 +21,11 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 		}
 
 		/// <summary>
+		/// 小部屋を作成するときに作られた大通路であるかどうか
+		/// </summary>
+		public bool IsParentLink;
+
+		/// <summary>
 		/// 分割方向
 		/// </summary>
 		public SplitDirection SplitType;
