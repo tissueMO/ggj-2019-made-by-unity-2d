@@ -36,7 +36,7 @@ namespace Assets.Scripts.PresetComponents.Roguelike {
 		public void ExitIfTrigger(Vector2Int targetPosition) {
 			if(!this.isActivated && targetPosition.x == Goal.position.x && targetPosition.y == Goal.position.y) {
 				GameObject.Find("FadeCanvas").GetComponent<Fade>().FadeIn(1.0f, new Action(() => {
-					UnityEngine.SceneManagement.SceneManager.LoadScene("Scenes/EndScene");
+					UnityEngine.SceneManagement.SceneManager.LoadScene("EndScene");
 				}));
 			}
 		}

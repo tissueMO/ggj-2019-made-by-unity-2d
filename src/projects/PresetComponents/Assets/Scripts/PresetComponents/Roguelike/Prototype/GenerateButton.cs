@@ -44,6 +44,22 @@ namespace Assets.Scripts.PresetComponents.Roguelike {
 		private GameObject player1;
 
 		/// <summary>
+		/// 開始後、即座にマップを生成するかどうか
+		/// </summary>
+		[SerializeField]
+		private bool generateMapImmediately = false;
+
+		/// <summary>
+		/// 開始時に自動的にマップを生成します。
+		/// </summary>
+		public void Update() {
+			if(this.enabled && this.generateMapImmediately) {
+				this.enabled = false;
+				this.OnClick();
+			}
+		}
+
+		/// <summary>
 		/// 生成実行
 		/// </summary>
 		public void OnClick() {

@@ -6,6 +6,12 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/Card.unity
-    guid: 6001973e28aa9c84f8136c21f5ad5d1f
+    path: Assets/Scenes/TitleScene.unity
+    guid: c2b9cc34b244a474cb47a0d28e4d6cd2
+  - enabled: 1
+    path: Assets/Scenes/Roguelike.unity
+    guid: 3afaa62327c2f0345be43ad2aec5aa33
+  - enabled: 1
+    path: Assets/Scenes/EndScene.unity
+    guid: 3457a6ad6e0bd5544bb585c79cd76519
   m_configObjects: {}
