@@ -86,7 +86,7 @@ namespace Assets.Scripts.PresetComponents.Roguelike.Interface {
 		}
 
 		/// <summary>
-		/// 現在のタイルデータを文字列に変換する
+		/// [デバッグ用] 現在のタイルデータを文字列に変換する
 		/// </summary>
 		public string TileDataToString() {
 			string buf = "";
