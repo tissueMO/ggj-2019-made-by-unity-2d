@@ -94,7 +94,7 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 			var room = this.Rooms[roomIndex];
 			this.player1Position = new Vector2Int(
 				UnityEngine.Random.Range(room.RoomRange.xMin + 1, room.RoomRange.xMax - 1),
-				UnityEngine.Random.Range(room.RoomRange.yMin + 1, room.RoomRange.yMax - 1)
+				UnityEngine.Random.Range(room.RoomRange.yMin + 3, room.RoomRange.yMax - 1)
 			);
 
 			// 画面上に表示
@@ -102,7 +102,7 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 			this.player1.transform.position = new Vector3(
 				this.player1Position.x,
 				-this.player1Position.y,
-				0
+				-10
 			);
 			this.player1.SetActive(true);
 		}
@@ -865,6 +865,7 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 							// 通路の先端にゴール配置
 							var goal = Resources.Load<GameObject>("Prefabs/Map/Goal");
 							var tileContainer = GameObject.Find("MapTiles");
+							Goal.Initialize(new Vector2Int(0, offset));
 							GameObject.Instantiate<GameObject>(
 								goal,
 								new Vector3(0, -offset, 0),
@@ -899,6 +900,7 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 							// 通路の先端にゴール配置
 							var goal = Resources.Load<GameObject>("Prefabs/Map/Goal");
 							var tileContainer = GameObject.Find("MapTiles");
+							Goal.Initialize(new Vector2Int(offset, 0));
 							GameObject.Instantiate<GameObject>(
 								goal,
 								new Vector3(offset, 0, 0),
@@ -939,6 +941,7 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 							// 通路の先端にゴール配置
 							var goal = Resources.Load<GameObject>("Prefabs/Map/Goal");
 							var tileContainer = GameObject.Find("MapTiles");
+							Goal.Initialize(new Vector2Int(this.DungeonRect.xMax - 1, offset));
 							GameObject.Instantiate<GameObject>(
 								goal,
 								new Vector3(this.DungeonRect.xMax - 1, -offset, 0),
@@ -973,6 +976,7 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 							// 通路の先端にゴール配置
 							var goal = Resources.Load<GameObject>("Prefabs/Map/Goal");
 							var tileContainer = GameObject.Find("MapTiles");
+							Goal.Initialize(new Vector2Int(offset, this.DungeonRect.yMax - 1));
 							GameObject.Instantiate<GameObject>(
 								goal,
 								new Vector3(offset, -(this.DungeonRect.yMax - 1), 0),

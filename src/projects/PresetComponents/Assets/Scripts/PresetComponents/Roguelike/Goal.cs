@@ -13,17 +13,32 @@ namespace Assets.Scripts.PresetComponents.Roguelike {
 	public class Goal : MonoBehaviour {
 
 		/// <summary>
+		/// 遷移中かどうか
+		/// </summary>
+		private bool isActivated = false;
+
+		/// <summary>
+		/// 配置されているタイル座標
+		/// </summary>
+		private static Vector2Int position;
+
+		/// <summary>
+		/// 初期化処理
+		/// </summary>
+		/// <param name="position">配置する位置</param>
+		public static void Initialize(Vector2Int position) {
+			Goal.position = position;
+		}
+
+		/// <summary>
 		/// プレイヤーが入場したときにエンディングシーンへ遷移します。
 		/// </summary>
-		/// <param name="other">接触したオブジェクト</param>
-		public void OnTriggerEnter(Collider other) {
-			if(other.tag != "Player") {
-				return;
+		public void ExitIfTrigger(Vector2Int targetPosition) {
+			if(!this.isActivated && targetPosition.x == Goal.position.x && targetPosition.y == Goal.position.y) {
+				GameObject.Find("FadeCanvas").GetComponent<Fade>().FadeIn(1.0f, new Action(() => {
+					UnityEngine.SceneManagement.SceneManager.LoadScene("Scenes/EndScene");
+				}));
 			}
-
-			GameObject.Find("FadeCanvas").GetComponent<Fade>().FadeIn(1.0f, new Action(() => {
-				UnityEngine.SceneManagement.SceneManager.LoadScene("Scenes/EndScene");
-			}));
 		}
 
 	}
