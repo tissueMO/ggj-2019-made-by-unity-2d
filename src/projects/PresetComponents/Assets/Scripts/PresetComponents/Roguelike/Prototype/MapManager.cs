@@ -11,7 +11,7 @@ namespace Assets.Scripts.PresetComponents.Roguelike {
 	/// <summary>
 	/// 現在のダンジョン生成ロジックで実際にマップを生成
 	/// </summary>
-	public class GenerateButton : MonoBehaviour {
+	public class MapManager : MonoBehaviour {
 
 		/// <summary>
 		/// ロジック管理オブジェクト
@@ -40,8 +40,12 @@ namespace Assets.Scripts.PresetComponents.Roguelike {
 		/// <summary>
 		/// プレイヤー１のオブジェクト
 		/// </summary>
-		[SerializeField]
-		private GameObject player1;
+		public GameObject player1;
+
+		/// <summary>
+		/// 生成されたマップ、プレイヤー、エネミー、アイテム、ギミック
+		/// </summary>
+		public GeneratedMapBase map;
 
 		/// <summary>
 		/// 開始後、即座にマップを生成するかどうか
@@ -64,11 +68,11 @@ namespace Assets.Scripts.PresetComponents.Roguelike {
 		/// </summary>
 		public void OnClick() {
 			IMapGenerator logic = this.logicChanger.Logic;
-			var map = logic.DoGenerate(this.mapSize, this.complexLevel, this.player1);
-			if(map != null) {
+			this.map = logic.DoGenerate(this.mapSize, this.complexLevel, this.player1);
+			if(this.map != null) {
 				// マップタイルを配置
-				Debug.Log(map.TileDataToString());
-				this.tileGenerator.GenerateTiles(map);
+				Debug.Log(this.map.TileDataToString());
+				this.tileGenerator.GenerateTiles(this.map);
 			}
 		}
 

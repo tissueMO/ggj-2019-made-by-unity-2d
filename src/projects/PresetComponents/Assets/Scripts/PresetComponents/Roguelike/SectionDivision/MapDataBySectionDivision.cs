@@ -61,6 +61,16 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 		private Vector2Int player1Position;
 
 		/// <summary>
+		/// プレイヤー１のY座標オフセット
+		/// </summary>
+		public const float Player1OffsetY = 0.2f;
+
+		// TODO: エネミーオブジェクトリスト
+		// TODO: エネミーオブジェクトタイル座標マップ（オブジェクトの参照がキー）
+		// TODO: アイテム原型プレハブリスト
+		// TODO: アイテム配置済みオブジェクトリスト
+
+		/// <summary>
 		/// コンストラクター
 		/// </summary>
 		public MapDataBySectionDivision(Vector2Int mapSize, GameObject player1) {
@@ -101,7 +111,7 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 			this.player1.GetComponent<Player1>().Initialize(this);
 			this.player1.transform.position = new Vector3(
 				this.player1Position.x,
-				-this.player1Position.y,
+				-this.player1Position.y + Player1OffsetY,
 				-10
 			);
 			this.player1.SetActive(true);
