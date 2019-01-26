@@ -20,6 +20,12 @@ namespace Assets.Scripts.PresetComponents.Roguelike {
 		private LogicChanger logicChanger;
 
 		/// <summary>
+		/// タイル配置管理オブジェクト
+		/// </summary>
+		[SerializeField]
+		private TileGenerator.TileGenerator tileGenerator;
+
+		/// <summary>
 		/// 生成するマップサイズ
 		/// </summary>
 		[SerializeField]
@@ -32,13 +38,21 @@ namespace Assets.Scripts.PresetComponents.Roguelike {
 		private int complexLevel = 5;
 
 		/// <summary>
+		/// プレイヤー１のオブジェクト
+		/// </summary>
+		[SerializeField]
+		private GameObject player1;
+
+		/// <summary>
 		/// 生成実行
 		/// </summary>
 		public void OnClick() {
 			IMapGenerator logic = this.logicChanger.Logic;
-			var map = logic.DoGenerate(this.mapSize, this.complexLevel);
+			var map = logic.DoGenerate(this.mapSize, this.complexLevel, this.player1);
 			if(map != null) {
+				// マップタイルを配置
 				Debug.Log(map.TileDataToString());
+				this.tileGenerator.GenerateTiles(map);
 			}
 		}
 

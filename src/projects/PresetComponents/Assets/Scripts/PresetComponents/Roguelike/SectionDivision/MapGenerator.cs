@@ -20,8 +20,8 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 		/// <summary>
 		/// 指定したサイズに収まるランダムダンジョンを生成します。
 		/// </summary>
-		public GeneratedMapBase DoGenerate(Vector2Int mapSize, int complexLevel) {
-			var map = new MapDataBySectionDivision(mapSize);
+		public GeneratedMapBase DoGenerate(Vector2Int mapSize, int complexLevel, GameObject player1) {
+			var map = new MapDataBySectionDivision(mapSize, player1);
 
 			int i;
 			for(i = 1; !map.DoGenerate(complexLevel) && i <= MapGenerator.MaxRebuildCount; i++) {

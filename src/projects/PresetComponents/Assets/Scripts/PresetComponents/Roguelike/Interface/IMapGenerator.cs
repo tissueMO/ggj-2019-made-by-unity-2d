@@ -17,8 +17,9 @@ namespace Assets.Scripts.PresetComponents.Roguelike.Interface {
 		/// </summary>
 		/// <param name="mapSize">生成時のマップサイズ</param>
 		/// <param name="complexLevel">複雑度 0～100</param>
+		/// <param name="player1">プレイヤー１のオブジェクト</param>
 		/// <returns>生成したマップ</returns>
-		GeneratedMapBase DoGenerate(Vector2Int mapSize, int complexLevel);
+		GeneratedMapBase DoGenerate(Vector2Int mapSize, int complexLevel, GameObject player1);
 
 	}
 

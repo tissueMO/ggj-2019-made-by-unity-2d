@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Assets.Scripts.PresetComponents.Roguelike.Interface;
+using Assets.Scripts.Roguelike;
 using UnityEngine;
 
 namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
@@ -49,10 +50,22 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 		public List<RoomLink> Links = new List<RoomLink>();
 
 		/// <summary>
+		/// プレイヤー１のオブジェクト
+		/// </summary>
+		[SerializeField]
+		public GameObject player1;
+
+		/// <summary>
+		/// プレイヤー１のタイル位置
+		/// </summary>
+		private Vector2Int player1Position;
+
+		/// <summary>
 		/// コンストラクター
 		/// </summary>
-		public MapDataBySectionDivision(Vector2Int mapSize) {
+		public MapDataBySectionDivision(Vector2Int mapSize, GameObject player1) {
 			this.Initialize(mapSize);
+			this.player1 = player1;
 		}
 
 		/// <summary>
@@ -71,6 +84,375 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 
 			// 分割線を初期化
 			this.Links.Clear();
+		}
+
+		/// <summary>
+		/// プレイヤー１の初期位置をランダムに決定します。
+		/// </summary>
+		public void SetAutoPlayerPosition() {
+			int roomIndex = UnityEngine.Random.Range(0, this.Rooms.Count);
+			var room = this.Rooms[roomIndex];
+			this.player1Position = new Vector2Int(
+				UnityEngine.Random.Range(room.RoomRange.xMin + 1, room.RoomRange.xMax - 1),
+				UnityEngine.Random.Range(room.RoomRange.yMin + 1, room.RoomRange.yMax - 1)
+			);
+
+			// 画面上に表示
+			this.player1.GetComponent<Player1>().Initialize(this);
+			this.player1.transform.position = new Vector3(
+				this.player1Position.x,
+				-this.player1Position.y,
+				0
+			);
+			this.player1.SetActive(true);
+		}
+
+		/// <summary>
+		/// プレイヤー１のタイル位置を取得します。
+		/// </summary>
+		/// <returns>プレイヤー１のタイル位置</returns>
+		public Vector2Int GetPlayerPosition() {
+			return this.player1Position;
+		}
+
+		/// <summary>
+		/// このダンジョンのランダム生成を実行します。
+		/// </summary>
+		/// <param name="complexLevel">複雑度: 分割数に関与</param>
+		/// <returns>正常に生成できたかどうか</returns>
+		public bool DoGenerate(int complexLevel) {
+			if(MapDataBySectionDivision.ComplexMaxLevel < complexLevel) {
+				Debug.LogWarning($"複雑度は {MapDataBySectionDivision.ComplexMaxLevel} 以内で設定して下さい。");
+				return false;
+			}
+
+			// 何回分割するかを概算する
+			int fy = this.DungeonRect.width * this.DungeonRect.height;
+			int count = 0;
+			while(fy > RoomData.MinRoomWidth * RoomData.MinRoomHeight) {
+				fy /= 2;
+				count++;
+			}
+
+			// 1. 分割線を作る
+			int splitCount = count * complexLevel / MapDataBySectionDivision.ComplexMaxLevel;
+			int lastIndex = 0;
+			for(int n = 0; n < splitCount; n++) {
+				if(this.RandomSplitArea(lastIndex, UnityEngine.Random.Range(MapDataBySectionDivision.MinSplitRate, MapDataBySectionDivision.MaxSplitRate))) {
+					// 分割に成功したら次の分割を試行する
+					lastIndex++;
+				}
+			}
+
+			// 2. 分割してできた各小部屋について、分割線に向かう通路を生成する
+			foreach(var room in this.Rooms) {
+				// 小部屋内で通路の起点を作る
+				room.LinkVector2Int = new Vector2Int(
+					room.RoomRange.x + UnityEngine.Random.Range(0, room.RoomRange.width),
+					room.RoomRange.y + UnityEngine.Random.Range(RoomData.WallHeight, room.RoomRange.height)
+				);
+
+				// 起点から４方向に向かって分割線があるかどうかをチェックする: 範囲は分割線を含めた小部屋理論領域
+				room.MaxGateCount = 0;
+				var checkRange = new RectInt(
+					new Vector2Int(room.AreaRange.x - 1/*境界線分*/, room.AreaRange.y - 1/*境界線分*/),
+					new Vector2Int(room.AreaRange.width + 1 * 2 + 1/*境界線分*/, room.AreaRange.height + 1 * 2 + 1/*境界線分*/)
+				);
+				for(int d = 0; d < (int)Direction.Count; d++) {
+					Vector2Int nextTile = room.LinkVector2Int;
+
+					while(true) {
+						// 次の座標に進む
+						nextTile = this.GetNextDirectionPosition(nextTile, (Direction)d);
+						if(!checkRange.Contains(nextTile) || !this.DungeonRect.Contains(nextTile)) {
+							// 次の座標が範囲外になったら分割線がないと判断する
+							room.AllowLinks[d] = false;
+							break;
+						} else if(this.TileData[nextTile.x, nextTile.y] == GeneratedMapTile.Aisle) {
+							// 次の座標が通路になっている場合は分割線であると判断する
+							room.AllowLinks[d] = true;
+							room.CrossVector2Ints[d] = nextTile;
+							room.MaxGateCount++;
+							break;
+						}
+					}
+				}
+
+				// 分割線に向かう通路をランダムに生成する
+				room.GateCount = UnityEngine.Random.Range(1, room.MaxGateCount + 1);
+				int generatedGateCount = 0;
+				while(generatedGateCount < room.GateCount && room.GateCount <= room.MaxGateCount) {
+					// 方向をランダムに決定する
+					int dir = UnityEngine.Random.Range(0, (int)Direction.Count);
+					if(!room.AllowLinks[dir]) {
+						// その方向に分割線がなければやり直し
+						continue;
+					} else if(room.LinkExists[dir]) {
+						// その方向の通路を既に作っていたらやり直し
+						continue;
+					}
+
+					// 分割線への接続本数を更新する
+					foreach(var link in this.Links) {
+						if(link.Contains(room.CrossVector2Ints[dir])) {
+							link.CrossCount++;
+							break;
+						}
+					}
+
+					// 通路生成: 起点から分割線との交点までをすべて床にする
+					generatedGateCount++;
+					room.LinkExists[dir] = true;
+					switch((Direction)dir) {
+						case Direction.Right:
+							for(int x = room.LinkVector2Int.x; x < room.CrossVector2Ints[dir].x; x++) {
+								this.TileData[x, room.LinkVector2Int.y] = GeneratedMapTile.Aisle;
+							}
+							break;
+
+						case Direction.Left:
+							for(int x = room.LinkVector2Int.x; room.CrossVector2Ints[dir].x < x; x--) {
+								this.TileData[x, room.LinkVector2Int.y] = GeneratedMapTile.Aisle;
+							}
+							break;
+
+						case Direction.Bottom:
+							for(int y = room.LinkVector2Int.y; y < room.CrossVector2Ints[dir].y; y++) {
+								this.TileData[room.LinkVector2Int.x, y] = GeneratedMapTile.Aisle;
+							}
+							break;
+
+						case Direction.Top:
+							for(int y = room.LinkVector2Int.y; room.CrossVector2Ints[dir].y < y; y--) {
+								this.TileData[room.LinkVector2Int.x, y] = GeneratedMapTile.Aisle;
+							}
+							break;
+					}
+				}
+			}
+
+			// 3. 分割線に正しく接続できているか調べる
+			foreach(var link in this.Links) {
+				//if(link.CrossCount < 2) {
+				if(link.CrossCount < 1) {
+					// 接続本数が２本未満だと、孤立した小部屋ができてしまうのでやり直し
+					this.Initialize(new Vector2Int(this.TileData.GetLength(0), this.TileData.GetLength(1)));
+					return false;
+				}
+			}
+
+			// 4. 分割線の両端を削る: 分割線の検証方向以外の方向に床がなければ逐次削っていく
+			foreach(var link in this.Links) {
+				switch(link.SplitType) {
+					case RoomLink.SplitDirection.Horizontal:
+						// 上下分割: 横線
+						this.TrimLink(link, Direction.Right);
+						this.TrimLink(link, Direction.Left);
+						break;
+
+					case RoomLink.SplitDirection.Vertical:
+						// 左右分割: 縦線
+						this.TrimLink(link, Direction.Bottom);
+						this.TrimLink(link, Direction.Top);
+						break;
+				}
+			}
+
+			// 5. 各通路の上部を壁にする
+			foreach(var link in this.Links) {
+				switch(link.SplitType) {
+					case RoomLink.SplitDirection.Horizontal:
+						// 横線は上部がすべて壁になる
+
+						for(int x = link.Start.x; x <= link.End.x; x++) {
+							if(this.TileData[x, link.Start.y] != GeneratedMapTile.Aisle) {
+								// 削られた通路部分は処理しない
+								continue;
+							}
+
+							// 壁にしようとしている部分が既に床にされていないか検証する
+							bool wallNG = false;
+							for(int n = 1; n <= RoomData.WallHeight; n++) {
+								if(this.TileData[x, link.Start.y - n] == GeneratedMapTile.Floor
+								|| this.TileData[x, link.Start.y - n] == GeneratedMapTile.Aisle) {
+									wallNG = true;
+									break;
+								}
+							}
+							if(wallNG) {
+								// 既に床にされているときは塞がない
+								continue;
+							}
+
+							// 壁化実行
+							for(int n = 1; n <= RoomData.WallHeight; n++) {
+								this.TileData[x, link.Start.y - n] = GeneratedMapTile.Wall;
+							}
+						}
+						break;
+
+					case RoomLink.SplitDirection.Vertical:
+						// 縦線は一番上だけを壁にする
+
+						for(int y = link.Start.y; y <= link.End.y; y++) {
+							if(this.TileData[link.Start.x, y] != GeneratedMapTile.Aisle) {
+								// 削られた通路部分は処理しない
+								continue;
+							}
+
+							// 壁にしようとしている部分が既に床にされていないか検証する
+							bool wallNG = false;
+							for(int n = 1; n <= RoomData.WallHeight; n++) {
+								if(this.TileData[link.Start.x, y - n] == GeneratedMapTile.Floor
+								|| this.TileData[link.Start.x, y - n] == GeneratedMapTile.Aisle) {
+									wallNG = true;
+									break;
+								}
+							}
+							if(wallNG) {
+								// 既に床にされているときは塞がない
+								break;
+							}
+
+							// 壁化実行
+							for(int n = 1; n <= RoomData.WallHeight; n++) {
+								this.TileData[link.Start.x, y - n] = GeneratedMapTile.Wall;
+							}
+							break;
+						}
+						break;
+				}
+			}
+
+			// 6. 各小部屋の床と壁を作る
+			foreach(var room in this.Rooms) {
+				// 6-1. 各小部屋内部の床と壁を作る
+				for(int x = room.RoomRange.xMin; x < room.RoomRange.xMax; x++) {
+					for(int y = room.RoomRange.yMin, n = 0; y < room.RoomRange.yMax; y++, n++) {
+						if(n < RoomData.WallHeight && (!room.LinkExists[(int)Direction.Top] || room.LinkVector2Int.x != x)) {
+							// 上２マスは壁にする: ただし通路は塞がない
+							this.TileData[x, y] = GeneratedMapTile.Wall;
+						} else {
+							this.TileData[x, y] = GeneratedMapTile.Floor;
+						}
+					}
+				}
+
+				// 6-2. 横線の通路に上部に壁を作る
+				for(int d = 0; d < (int)Direction.Count; d++) {
+					if(!room.LinkExists[d]) {
+						// 通路がない場合は処理しない
+						continue;
+					}
+					switch((Direction)d) {
+						case Direction.Right:
+							for(int x = room.RoomRange.xMax; x <= room.AreaRange.xMax; x++) {
+								for(int n = 1; n <= RoomData.WallHeight; n++) {
+									this.TileData[x, room.LinkVector2Int.y - n] = GeneratedMapTile.Wall;
+								}
+							}
+							break;
+
+						case Direction.Left:
+							for(int x = room.AreaRange.xMin; x < room.RoomRange.xMin; x++) {
+								for(int n = 1; n <= RoomData.WallHeight; n++) {
+									this.TileData[x, room.LinkVector2Int.y - n] = GeneratedMapTile.Wall;
+								}
+							}
+							break;
+					}
+				}
+			}
+
+			// 7. 各通路と各小部屋の外周に天井（＝枠）を付ける
+			// 小部屋の外周に天井を付ける
+			foreach(var room in this.Rooms) {
+				var rect = room.RoomRange;
+
+				for(int x = rect.xMin - 1; x < rect.xMax + 1; x++) {
+					if(0 <= x && 0 <= rect.yMin - 1 && this.TileData[x, rect.yMin - 1] == GeneratedMapTile.None) {
+						this.TileData[x, rect.yMin - 1] = GeneratedMapTile.Ceil;
+						Debug.Log($"Ceil: {x}, {rect.yMin - 1}");
+					}
+					if(0 <= x && rect.yMax < this.DungeonRect.height && this.TileData[x, rect.yMax] == GeneratedMapTile.None) {
+						this.TileData[x, rect.yMax] = GeneratedMapTile.Ceil;
+						Debug.Log($"Ceil: {x}, {rect.yMax}");
+					}
+				}
+				for(int y = rect.yMin - 1; y < rect.yMax + 1; y++) {
+					if(0 <= y && 0 <= rect.xMin - 1 && this.TileData[rect.xMin - 1, y] == GeneratedMapTile.None) {
+						this.TileData[rect.xMin - 1, y] = GeneratedMapTile.Ceil;
+						Debug.Log($"Ceil: {rect.xMin - 1}, {y}");
+					}
+					if(0 <= y && rect.xMax < this.DungeonRect.width && this.TileData[rect.xMax, y] == GeneratedMapTile.None) {
+						this.TileData[rect.xMax, y] = GeneratedMapTile.Ceil;
+						Debug.Log($"Ceil: {rect.xMax}, {y}");
+					}
+				}
+			}
+			// 通路の外周に天井を付ける
+			foreach(var link in this.Links) {
+				RectInt rect;
+				int baseX = -1;
+				int baseY = -1;
+
+				if(link.SplitType == RoomLink.SplitDirection.Horizontal) {
+					baseY = link.Start.y;
+					rect = new RectInt(
+						link.Start.x,
+						baseY - RoomData.WallHeight,
+						link.End.x - link.Start.x,
+						1 + RoomData.WallHeight
+					);
+				} else {
+					baseX = link.Start.x;
+					rect = new RectInt(
+						link.Start.x,
+						link.Start.y,
+						1,
+						1 + link.End.y - link.Start.y
+					);
+				}
+
+				for(int x = rect.xMin - 1; x < rect.xMax + 1; x++) {
+					if(link.SplitType == RoomLink.SplitDirection.Horizontal) {
+						if(this.TileData[x, baseY] == GeneratedMapTile.None) {
+							continue;
+						}
+					}
+
+					if(0 <= x && 0 <= rect.yMin - 1 && this.TileData[x, rect.yMin - 1] == GeneratedMapTile.None) {
+						this.TileData[x, rect.yMin - 1] = GeneratedMapTile.Ceil;
+						Debug.Log($"Ceil: {x}, {rect.yMin - 1}");
+					}
+					if(0 <= x && rect.yMax < this.DungeonRect.height && this.TileData[x, rect.yMax] == GeneratedMapTile.None) {
+						this.TileData[x, rect.yMax] = GeneratedMapTile.Ceil;
+						Debug.Log($"Ceil: {x}, {rect.yMax}");
+					}
+				}
+				for(int y = rect.yMin - 1; y < rect.yMax + 1; y++) {
+					if(link.SplitType == RoomLink.SplitDirection.Vertical) {
+						if(this.TileData[baseX, y] == GeneratedMapTile.None) {
+							continue;
+						}
+					}
+
+					if(0 <= y && 0 <= rect.xMin - 1 && this.TileData[rect.xMin - 1, y] == GeneratedMapTile.None) {
+						this.TileData[rect.xMin - 1, y] = GeneratedMapTile.Ceil;
+						Debug.Log($"Ceil: {rect.xMin - 1}, {y}");
+					}
+					if(0 <= y && rect.xMax < this.DungeonRect.width && this.TileData[rect.xMax, y] == GeneratedMapTile.None) {
+						this.TileData[rect.xMax, y] = GeneratedMapTile.Ceil;
+						Debug.Log($"Ceil: {rect.xMax}, {y}");
+					}
+				}
+			}
+
+			// 8. プレイヤー１を配置
+			this.SetAutoPlayerPosition();
+
+			// 正常に生成された
+			return true;
 		}
 
 		/// <summary>
@@ -181,13 +563,13 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 			switch(newLink.SplitType) {
 				case RoomLink.SplitDirection.Horizontal:
 					for(int x = newLink.Start.x; x <= newLink.End.x; x++) {
-						this.TileData[x, newLink.Start.y] = GeneratedMapTile.Floor;
+						this.TileData[x, newLink.Start.y] = GeneratedMapTile.Aisle;
 					}
 					break;
 
 				case RoomLink.SplitDirection.Vertical:
 					for(int y = newLink.Start.y; y <= newLink.End.y; y++) {
-						this.TileData[newLink.Start.x, y] = GeneratedMapTile.Floor;
+						this.TileData[newLink.Start.x, y] = GeneratedMapTile.Aisle;
 					}
 					break;
 			}
@@ -262,267 +644,17 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 					}
 
 					Vector2Int checkTileNextPos = this.GetNextDirectionPosition(checkTilePos, (GeneratedMapBase.Direction)d);
-					if(this.TileData[checkTileNextPos.x, checkTileNextPos.y] == GeneratedMapTile.Floor) {
+					if(this.TileData[checkTileNextPos.x, checkTileNextPos.y] == GeneratedMapTile.Floor
+					|| this.TileData[checkTileNextPos.x, checkTileNextPos.y] == GeneratedMapTile.Aisle) {
 						cutFlag = false;
 						break;
 					}
 				}
 				if(cutFlag) {
 					// 現在のタイルを削る
-					this.TileData[checkTilePos.x, checkTilePos.y] = GeneratedMapTile.Ceil;
+					this.TileData[checkTilePos.x, checkTilePos.y] = GeneratedMapTile.None;
 				}
 			}
-		}
-
-		/// <summary>
-		/// このダンジョンのランダム生成を実行します。
-		/// </summary>
-		/// <param name="complexLevel">複雑度: 分割数に関与</param>
-		/// <returns>正常に生成できたかどうか</returns>
-		public bool DoGenerate(int complexLevel) {
-			if(MapDataBySectionDivision.ComplexMaxLevel < complexLevel) {
-				Debug.LogWarning($"複雑度は {MapDataBySectionDivision.ComplexMaxLevel} 以内で設定して下さい。");
-				return false;
-			}
-
-			// 何回分割するかを概算する
-			int fy = this.DungeonRect.width * this.DungeonRect.height;
-			int count = 0;
-			while(fy > RoomData.MinRoomWidth * RoomData.MinRoomHeight) {
-				fy /= 2;
-				count++;
-			}
-
-			// 1. 分割線を作る
-			int splitCount = count * complexLevel / MapDataBySectionDivision.ComplexMaxLevel;
-			int lastIndex = 0;
-			for(int n = 0; n < splitCount; n++) {
-				if(this.RandomSplitArea(lastIndex, UnityEngine.Random.Range(MapDataBySectionDivision.MinSplitRate, MapDataBySectionDivision.MaxSplitRate))) {
-					// 分割に成功したら次の分割を試行する
-					lastIndex++;
-				}
-			}
-
-			// 2. 分割してできた各小部屋について、分割線に向かう通路を生成する
-			foreach(var room in this.Rooms) {
-				// 小部屋内で通路の起点を作る
-				room.LinkVector2Int = new Vector2Int(
-					room.RoomRange.x + UnityEngine.Random.Range(0, room.RoomRange.width),
-					room.RoomRange.y + UnityEngine.Random.Range(RoomData.WallHeight, room.RoomRange.height)
-				);
-
-				// 起点から４方向に向かって分割線があるかどうかをチェックする: 範囲は分割線を含めた小部屋理論領域
-				room.MaxGateCount = 0;
-				var checkRange = new RectInt(
-					new Vector2Int(room.AreaRange.x - 1/*境界線分*/, room.AreaRange.y - 1/*境界線分*/),
-					new Vector2Int(room.AreaRange.width + 1 * 2 + 1/*境界線分*/, room.AreaRange.height + 1 * 2 + 1/*境界線分*/)
-				);
-				for(int d = 0; d < (int)Direction.Count; d++) {
-					Vector2Int nextTile = room.LinkVector2Int;
-
-					while(true) {
-						// 次の座標に進む
-						nextTile = this.GetNextDirectionPosition(nextTile, (Direction)d);
-						if(!checkRange.Contains(nextTile) || !this.DungeonRect.Contains(nextTile)) {
-							// 次の座標が範囲外になったら分割線がないと判断する
-							room.AllowLinks[d] = false;
-							break;
-						} else if(this.TileData[nextTile.x, nextTile.y] == GeneratedMapTile.Floor) {
-							// 次の座標が床になっている場合は分割線であると判断する
-							room.AllowLinks[d] = true;
-							room.CrossVector2Ints[d] = nextTile;
-							room.MaxGateCount++;
-							break;
-						}
-					}
-				}
-
-				// 分割線に向かう通路をランダムに生成する
-				room.GateCount = UnityEngine.Random.Range(1, room.MaxGateCount + 1);
-				int generatedGateCount = 0;
-				while(generatedGateCount < room.GateCount && room.GateCount <= room.MaxGateCount) {
-					// 方向をランダムに決定する
-					int dir = UnityEngine.Random.Range(0, (int)Direction.Count);
-					if(!room.AllowLinks[dir]) {
-						// その方向に分割線がなければやり直し
-						continue;
-					} else if(room.LinkExists[dir]) {
-						// その方向の通路を既に作っていたらやり直し
-						continue;
-					}
-
-					// 分割線への接続本数を更新する
-					foreach(var link in this.Links) {
-						if(link.Contains(room.CrossVector2Ints[dir])) {
-							link.CrossCount++;
-							break;
-						}
-					}
-
-					// 通路生成: 起点から分割線との交点までをすべて床にする
-					generatedGateCount++;
-					room.LinkExists[dir] = true;
-					switch((Direction)dir) {
-						case Direction.Right:
-							for(int x = room.LinkVector2Int.x; x < room.CrossVector2Ints[dir].x; x++) {
-								this.TileData[x, room.LinkVector2Int.y] = GeneratedMapTile.Floor;
-							}
-							break;
-
-						case Direction.Left:
-							for(int x = room.LinkVector2Int.x; room.CrossVector2Ints[dir].x < x; x--) {
-								this.TileData[x, room.LinkVector2Int.y] = GeneratedMapTile.Floor;
-							}
-							break;
-
-						case Direction.Bottom:
-							for(int y = room.LinkVector2Int.y; y < room.CrossVector2Ints[dir].y; y++) {
-								this.TileData[room.LinkVector2Int.x, y] = GeneratedMapTile.Floor;
-							}
-							break;
-
-						case Direction.Top:
-							for(int y = room.LinkVector2Int.y; room.CrossVector2Ints[dir].y < y; y--) {
-								this.TileData[room.LinkVector2Int.x, y] = GeneratedMapTile.Floor;
-							}
-							break;
-					}
-				}
-			}
-
-			// 3. 分割線に正しく接続できているか調べる
-			foreach(var link in this.Links) {
-				//if(link.CrossCount < 2) {
-				if(link.CrossCount < 1) {
-					// 接続本数が２本未満だと、孤立した小部屋ができてしまうのでやり直し
-					this.Initialize(new Vector2Int(this.TileData.GetLength(0), this.TileData.GetLength(1)));
-					return false;
-				}
-			}
-
-			// 4. 分割線の両端を削る: 分割線の検証方向以外の方向に床がなければ逐次削っていく
-			foreach(var link in this.Links) {
-				switch(link.SplitType) {
-					case RoomLink.SplitDirection.Horizontal:
-						// 上下分割: 横線
-						this.TrimLink(link, Direction.Right);
-						this.TrimLink(link, Direction.Left);
-						break;
-
-					case RoomLink.SplitDirection.Vertical:
-						// 左右分割: 縦線
-						this.TrimLink(link, Direction.Bottom);
-						this.TrimLink(link, Direction.Top);
-						break;
-				}
-			}
-
-			// 5. 各通路の上部を壁にする
-			foreach(var link in this.Links) {
-				switch(link.SplitType) {
-					case RoomLink.SplitDirection.Horizontal:
-						// 横線は上部がすべて壁になる
-
-						for(int x = link.Start.x; x <= link.End.x; x++) {
-							if(this.TileData[x, link.Start.y] != GeneratedMapTile.Floor) {
-								// 削られた通路部分は処理しない
-								continue;
-							}
-
-							// 壁にしようとしている部分が既に床にされていないか検証する
-							bool wallNG = false;
-							for(int n = 1; n <= RoomData.WallHeight; n++) {
-								if(this.TileData[x, link.Start.y - n] == GeneratedMapTile.Floor) {
-									wallNG = true;
-									break;
-								}
-							}
-							if(wallNG) {
-								// 既に床にされているときは塞がない
-								continue;
-							}
-
-							// 壁化実行
-							for(int n = 1; n <= RoomData.WallHeight; n++) {
-								this.TileData[x, link.Start.y - n] = GeneratedMapTile.Wall;
-							}
-						}
-						break;
-
-					case RoomLink.SplitDirection.Vertical:
-						// 縦線は一番上だけを壁にする
-
-						for(int y = link.Start.y; y <= link.End.y; y++) {
-							if(this.TileData[link.Start.x, y] != GeneratedMapTile.Floor) {
-								// 削られた通路部分は処理しない
-								continue;
-							}
-
-							// 壁にしようとしている部分が既に床にされていないか検証する
-							bool wallNG = false;
-							for(int n = 1; n <= RoomData.WallHeight; n++) {
-								if(this.TileData[link.Start.x, y - n] == GeneratedMapTile.Floor) {
-									wallNG = true;
-									break;
-								}
-							}
-							if(wallNG) {
-								// 既に床にされているときは塞がない
-								break;
-							}
-
-							// 壁化実行
-							for(int n = 1; n <= RoomData.WallHeight; n++) {
-								this.TileData[link.Start.x, y - n] = GeneratedMapTile.Wall;
-							}
-							break;
-						}
-						break;
-				}
-			}
-
-			// 6. 各小部屋の床と壁を作る
-			foreach(var room in this.Rooms) {
-				// 6-1. 各小部屋内部の床と壁を作る
-				for(int x = room.RoomRange.xMin; x < room.RoomRange.xMax; x++) {
-					for(int y = room.RoomRange.yMin, n = 0; y < room.RoomRange.yMax; y++, n++) {
-						if(n < RoomData.WallHeight && (!room.LinkExists[(int)Direction.Top] || room.LinkVector2Int.x != x)) {
-							// 上２マスは壁にする: ただし通路は塞がない
-							this.TileData[x, y] = GeneratedMapTile.Wall;
-						} else {
-							this.TileData[x, y] = GeneratedMapTile.Floor;
-						}
-					}
-				}
-
-				// 6-2. 横線の通路に上部に壁を作る
-				for(int d = 0; d < (int)Direction.Count; d++) {
-					if(!room.LinkExists[d]) {
-						// 通路がない場合は処理しない
-						continue;
-					}
-					switch((Direction)d) {
-						case Direction.Right:
-							for(int x = room.RoomRange.xMax; x <= room.AreaRange.xMax; x++) {
-								for(int n = 1; n <= RoomData.WallHeight; n++) {
-									this.TileData[x, room.LinkVector2Int.y - n] = GeneratedMapTile.Wall;
-								}
-							}
-							break;
-
-						case Direction.Left:
-							for(int x = room.AreaRange.xMin; x < room.RoomRange.xMin; x++) {
-								for(int n = 1; n <= RoomData.WallHeight; n++) {
-									this.TileData[x, room.LinkVector2Int.y - n] = GeneratedMapTile.Wall;
-								}
-							}
-							break;
-					}
-				}
-			}
-
-			// 正常に生成された
-			return true;
 		}
 
 	}

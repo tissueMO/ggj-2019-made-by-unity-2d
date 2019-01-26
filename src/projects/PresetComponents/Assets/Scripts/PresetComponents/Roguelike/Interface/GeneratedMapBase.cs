@@ -17,8 +17,10 @@ namespace Assets.Scripts.PresetComponents.Roguelike.Interface {
 		/// </summary>
 		public enum GeneratedMapTile {
 			Floor,          // 床: 通行OK
+			Aisle,			// 通路: 通行OK
 			Wall,           // 壁: 通行NG
 			Ceil,           // 天井: 通行NG
+			None,			// タイルなし: 透過: 通行未定義
 		}
 
 		/// <summary>
@@ -54,7 +56,7 @@ namespace Assets.Scripts.PresetComponents.Roguelike.Interface {
 			this.TileData = new GeneratedMapTile[this.DungeonRect.width, this.DungeonRect.height];
 			for(int x = 0; x < this.DungeonRect.width; x++) {
 				for(int y = 0; y < this.DungeonRect.height; y++) {
-					this.TileData[x, y] = GeneratedMapTile.Ceil;
+					this.TileData[x, y] = GeneratedMapTile.None;
 				}
 			}
 		}
