@@ -21,6 +21,8 @@ namespace Assets.Scripts.PresetComponents.Transition {
 		[SerializeField]
 		private Fade fadeCanvas;
 
+		private bool fade = false;
+
 		/// <summary>
 		/// シーン遷移直後に画面を隠すためのオブジェクト
 		/// </summary>
@@ -37,12 +39,17 @@ namespace Assets.Scripts.PresetComponents.Transition {
 		/// <summary>
 		/// シーン開始直後にフェードインします。
 		/// </summary>
-		private void Start() {
-			// 先にフェードで隠しきってから開始する
-			this.fadeCanvas.FadeIn(0, () => {
-				this.blackout.SetActive(false);
-				this.fadeCanvas.FadeOut(TransitionInitializer.FadeSec);
-			});
+		private void Update() {
+			if(this.fade == false) {
+				this.fade = true;
+				this.enabled = false;
+
+				// 先にフェードで隠しきってから開始する
+				this.fadeCanvas.FadeIn(0, () => {
+					this.blackout.SetActive(false);
+					this.fadeCanvas.FadeOut(TransitionInitializer.FadeSec);
+				});
+			}
 		}
 
 	}

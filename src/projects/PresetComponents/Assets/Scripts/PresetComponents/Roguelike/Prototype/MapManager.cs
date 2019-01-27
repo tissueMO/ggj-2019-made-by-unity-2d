@@ -43,6 +43,11 @@ namespace Assets.Scripts.PresetComponents.Roguelike {
 		public GameObject player1;
 
 		/// <summary>
+		/// タイルコンテナー
+		/// </summary>
+		public GameObject tileContainer;
+
+		/// <summary>
 		/// 生成されたマップ、プレイヤー、エネミー、アイテム、ギミック
 		/// </summary>
 		public GeneratedMapBase map;
@@ -68,7 +73,7 @@ namespace Assets.Scripts.PresetComponents.Roguelike {
 		/// </summary>
 		public void OnClick() {
 			IMapGenerator logic = this.logicChanger.Logic;
-			this.map = logic.DoGenerate(this.mapSize, this.complexLevel, this.player1);
+			this.map = logic.DoGenerate(this.mapSize, this.complexLevel, this.player1, this.tileContainer);
 			if(this.map != null) {
 				// マップタイルを配置
 				Debug.Log(this.map.TileDataToString());

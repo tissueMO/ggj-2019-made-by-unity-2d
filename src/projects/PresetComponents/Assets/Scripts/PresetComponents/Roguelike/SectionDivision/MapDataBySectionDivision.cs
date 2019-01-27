@@ -40,6 +40,11 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 		public const int ComplexMaxLevel = 10;
 
 		/// <summary>
+		/// エネミーの登場数
+		/// </summary>
+		public const int EnemyCount = 10;
+
+		/// <summary>
 		/// 小部屋リスト
 		/// </summary>
 		public List<RoomData> Rooms = new List<RoomData>();
@@ -65,17 +70,38 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 		/// </summary>
 		public const float Player1OffsetY = 0.2f;
 
-		// TODO: エネミーオブジェクトリスト
-		// TODO: エネミーオブジェクトタイル座標マップ（オブジェクトの参照がキー）
-		// TODO: アイテム原型プレハブリスト
-		// TODO: アイテム配置済みオブジェクトリスト
+		/// <summary>
+		/// エネミーオブジェクトリスト
+		/// </summary>
+		public List<GameObject> Enemies = new List<GameObject>();
+
+		/// <summary>
+		/// アイテム原型プレハブリスト
+		/// </summary>
+		public GameObject[] ItemBaseList;
+
+		/// <summary>
+		/// アイテム配置済みオブジェクトリスト
+		/// </summary>
+		public List<GameObject> PutItemList;
+
+		/// <summary>
+		/// アイテム配置済みオブジェクトのタイル座標マップ（オブジェクトの参照がキー）
+		/// </summary>
+		public Dictionary<ItemClass, Vector2Int> ItemObjectTileMap = new Dictionary<ItemClass, Vector2Int>();
+
+		/// <summary>
+		/// タイルコンテナー
+		/// </summary>
+		private GameObject tileContainer;
 
 		/// <summary>
 		/// コンストラクター
 		/// </summary>
-		public MapDataBySectionDivision(Vector2Int mapSize, GameObject player1) {
+		public MapDataBySectionDivision(Vector2Int mapSize, GameObject player1, GameObject tileContainer) {
 			this.Initialize(mapSize);
 			this.player1 = player1;
+			this.tileContainer = tileContainer;
 		}
 
 		/// <summary>
@@ -100,21 +126,99 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 		/// プレイヤー１の初期位置をランダムに決定します。
 		/// </summary>
 		public void SetAutoPlayerPosition() {
-			int roomIndex = UnityEngine.Random.Range(0, this.Rooms.Count);
-			var room = this.Rooms[roomIndex];
-			this.player1Position = new Vector2Int(
-				UnityEngine.Random.Range(room.RoomRange.xMin + 1, room.RoomRange.xMax - 1),
-				UnityEngine.Random.Range(room.RoomRange.yMin + 3, room.RoomRange.yMax - 1)
-			);
+			while(true) {
+				int roomIndex = UnityEngine.Random.Range(0, this.Rooms.Count);
+				var room = this.Rooms[roomIndex];
+				this.player1Position = new Vector2Int(
+					UnityEngine.Random.Range(room.RoomRange.xMin + 1, room.RoomRange.xMax - 1),
+					UnityEngine.Random.Range(room.RoomRange.yMin + 3, room.RoomRange.yMax - 1)
+				);
+				if(!this.IsNotExistsObject(this.player1Position, false)) {
+					continue;
+				}
 
-			// 画面上に表示
-			this.player1.GetComponent<Player1>().Initialize(this);
-			this.player1.transform.position = new Vector3(
-				this.player1Position.x,
-				-this.player1Position.y + Player1OffsetY,
-				-10
-			);
-			this.player1.SetActive(true);
+				// 画面上に表示
+				this.player1.GetComponent<Player1>().Initialize(this);
+				this.player1.transform.position = new Vector3(
+					this.player1Position.x,
+					-this.player1Position.y + Player1OffsetY,
+					-10
+				);
+				this.player1.SetActive(true);
+				break;
+			}
+		}
+
+		/// <summary>
+		/// エネミーの初期位置をランダムに決定します。
+		/// </summary>
+		public void GenerateEnemies() {
+			// 固定数で生成する
+			for(int i = 0; i < MapDataBySectionDivision.EnemyCount; i++) {
+				while(true) {
+					int roomIndex = UnityEngine.Random.Range(0, this.Rooms.Count);
+					var room = this.Rooms[roomIndex];
+					var position = new Vector2Int(
+						UnityEngine.Random.Range(room.RoomRange.xMin + 1, room.RoomRange.xMax - 1),
+						UnityEngine.Random.Range(room.RoomRange.yMin + 3, room.RoomRange.yMax - 1)
+					);
+					if(!this.IsNotExistsObject(position, true)) {
+						continue;
+					}
+
+					// 画面上に表示
+					var prefab = Resources.Load<GameObject>("Prefabs/Map/Enemy");
+					var obj = GameObject.Instantiate<GameObject>(
+						prefab,
+						new Vector3(
+							position.x ,
+							-(position.y),
+							-10
+						),
+						new Quaternion()
+					);
+					obj.GetComponent<Enemy>().Initialize(this);
+					obj.GetComponent<Enemy>().m_ArrayPos = position;
+					this.Enemies.Add(obj);
+					break;
+				}
+			}
+		}
+
+		/// <summary>
+		/// 指定した座標に歩けないタイル、プレイヤー、エネミー、アイテム、ギミックがないかどうかを調べます。
+		/// </summary>
+		/// <param name="position"></param>
+		/// <returns></returns>
+		public bool IsNotExistsObject(Vector2Int position, bool isEnemyMode) {
+			// 歩けないタイル
+			if(this.TileData[position.x, position.y] != GeneratedMapTile.Aisle
+			&& this.TileData[position.x, position.y] != GeneratedMapTile.Floor) {
+				return false;
+			}
+
+			// プレイヤー
+			Debug.Log($"P=x({this.player1Position.x}:y{this.player1Position.y}");
+			if(isEnemyMode && this.player1Position == position) {
+				return false;
+			}
+
+			// エネミー
+			foreach(var enemy in this.Enemies) {
+				var pos = enemy.GetComponent<Enemy>().m_ArrayPos;
+				//Debug.Log($"E=x{pos.x}:y{pos.y}");
+				if(pos == position) {
+					return false;
+				}
+			}
+
+			// アイテム
+			// TODO: 判定処理
+
+			// ギミック
+			// TODO: 判定処理
+
+			return true;
 		}
 
 		/// <summary>
@@ -601,7 +705,10 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 			// 8. プレイヤー１を配置
 			this.SetAutoPlayerPosition();
 
-			// 9. ゴールを配置
+			// 9. エネミーを配置
+			this.GenerateEnemies();
+
+			// LAST: ゴールを配置
 			this.generateGoalLink();
 
 			// 正常に生成された
@@ -821,7 +928,7 @@ namespace Assets.Scripts.PresetComponents.Roguelike.SectionDivision {
 		private bool isTileSameRange(RectInt rect, GeneratedMapBase.GeneratedMapTile tile) {
 			for(int x = rect.xMin; x < rect.xMax; x++) {
 				for(int y = rect.yMin; y < rect.yMax; y++) {
-					Debug.Log($"x={x}, y={y}");
+					//Debug.Log($"x={x}, y={y}");
 					if(this.TileData[x, y] != tile) {
 						return false;
 					}

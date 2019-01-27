@@ -10,53 +10,45 @@ using Assets.Scripts.Roguelike;
 /// マウスオーバー、マウスクリック時の処理を実装
 /// </summary>
 public abstract class StageObjectBase : MonoBehaviour {
-
 	SpriteRenderer mSpriteRenderer;
 	AudioSource mClickAudioSource;
 	Transform mAudioSourceTransform;
+
 	GameMaster gm;
 
 	protected virtual void Start() {
 		mSpriteRenderer = GetComponent<SpriteRenderer>();
 		mAudioSourceTransform = transform.Find("Audio Source");
 		mClickAudioSource = GetComponentInChildren<AudioSource>();
+		gm = GameObject.Find("GameMaster").GetComponent<GameMaster>();
 	}
 
-	protected virtual void Update() {
-		// ゲームマスターを取得
-		if(this.gm == null) {
-			this.gm = GameObject.Find("GameMaster").GetComponent<GameMaster>();
-		}
-	}
-
-	//マウスオーバー時のハイライトオミット
-	/*
-    protected void OnMouseOver()
-    {
-        mSpriteRenderer.color = new Color(100,100,100,255);
-        Debug.Log("mouseOver");
-    }
-    protected void OnMouseExit()
-    {
-        mSpriteRenderer.color = new Color(255, 255, 255, 255);
-        Debug.Log("MouseExit");
-    }
-    */
+	//protected void OnMouseOver() {
+	//	mSpriteRenderer.color = new Color(100, 100, 100, 255);
+	//	Debug.Log("mouseOver");
+	//}
+	//protected void OnMouseExit() {
+	//	mSpriteRenderer.color = new Color(255, 255, 255, 255);
+	//	Debug.Log("MouseExit");
+	//}
 
 	protected void OnMouseDown() {
+		if(mClickAudioSource.isPlaying) {
+			return;
+		}
 		SetSoundSourcePosition();
 		mClickAudioSource.Play();
 		Debug.Log("soundPlay");
 
-		//警告を抑えるための無意味なコンティヌーウィズ
-		SetOriginalPosition().ContinueWith((message) => message);
+		////警告を抑えるための無意味なコンティヌーウィズ
+		//SetOriginalPosition().ContinueWith((message) => message);
 	}
 
 	private Vector3 SetSoundSourcePosition() {
-		var player1 = this.gm.Player1Instance;
-		var playerToThisVector = mAudioSourceTransform.position - player1.transform.position;
+		var player = gm.Player1Instance;
+		var playerToThisVector = mAudioSourceTransform.position - player.transform.position;
 
-		switch(player1.m_LookDirection) {
+		switch(player.m_LookDirection) {
 			case Assets.Scripts.Roguelike.Player1.LookDirection.UP:
 				return transform.position;
 			case Assets.Scripts.Roguelike.Player1.LookDirection.RIGHT:
@@ -69,7 +61,7 @@ public abstract class StageObjectBase : MonoBehaviour {
 				playerToThisVector = RotateMatrix(playerToThisVector, 270);
 				break;
 		}
-		mAudioSourceTransform.position = player1.transform.position + playerToThisVector;
+		mAudioSourceTransform.position = player.transform.position + playerToThisVector;
 		return transform.position;
 	}
 
@@ -86,8 +78,9 @@ public abstract class StageObjectBase : MonoBehaviour {
 	}
 
 	private async Task SetOriginalPosition() {
-		await Task.Delay(100);
+		while(mClickAudioSource.isPlaying) {
+			await Task.Delay(100);
+		}
 		mAudioSourceTransform.position = transform.position;
 	}
-
 }

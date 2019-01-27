@@ -52,7 +52,7 @@ namespace Assets.Scripts.Roguelike {
 
 		private int m_MoveBlockAmount = 1;  //移動するときの移動ブロック数
 
-		public const int MoveAnimationFrame = 15;   // アニメーション移動が完了するまでのフレーム数
+		public const int MoveAnimationFrame = 10;   // アニメーション移動が完了するまでのフレーム数
 
 		//プレイヤーが見ている方向
 		public enum LookDirection {
@@ -140,7 +140,6 @@ namespace Assets.Scripts.Roguelike {
 
 					//移動
 					//this.transform.position = m_Target;
-					this.StartCoroutine(this.moveSmoothAnimation(m_Target));
 
 					// ゴール判定
 					GameObject.Find("Goal(Clone)").GetComponent<Goal>().ExitIfTrigger(this.m_PlayerArrayPos);
@@ -149,9 +148,9 @@ namespace Assets.Scripts.Roguelike {
 			}
 
 			//debugcode
-			if(Input.GetKey(KeyCode.Q)) {
-				StartTurn();
-			}
+			//if(Input.GetKey(KeyCode.Q)) {
+			//	StartTurn();
+			//}
 
 			//スプライトを向きによって変更する <- Animatorのトリガー発動に変更
 			SpriteChange();
@@ -165,7 +164,8 @@ namespace Assets.Scripts.Roguelike {
 			Vector2Int nextArrayPos = m_GeneratedMapBase.GetNextDirectionPosition(m_PlayerArrayPos, direction);
 
 			//次に移動する配列番地にあるタイルの取得
-			if(m_GeneratedMapBase.DungeonRect.width <= nextArrayPos.x || m_GeneratedMapBase.DungeonRect.height <= nextArrayPos.y) {
+			if((m_GeneratedMapBase.DungeonRect.x < 0 || m_GeneratedMapBase.DungeonRect.width <= nextArrayPos.x)
+			|| (m_GeneratedMapBase.DungeonRect.y < 0 || m_GeneratedMapBase.DungeonRect.height <= nextArrayPos.y)) {
 				// マップからはみ出してしまう
 				return false;
 			}
@@ -174,18 +174,23 @@ namespace Assets.Scripts.Roguelike {
 			bool checkFlag = true;  //チェック結果
 
 			//タイルの種類ごとに処理判別
-			switch(tile) {
-				//壁だった場合
-				case GeneratedMapTile.Wall:
-					checkFlag = false;
-					Debug.Log("Wall");
-					break;
+			//switch(tile) {
+			//	//壁だった場合
+			//	case GeneratedMapTile.Wall:
+			//		checkFlag = false;
+			//		//Debug.Log("Wall");
+			//		break;
 
-				//天井だった場合
-				case GeneratedMapTile.Ceil:
-					checkFlag = false;
-					Debug.Log("Ceil");
-					break;
+			//	//天井だった場合
+			//	case GeneratedMapTile.Ceil:
+			//		checkFlag = false;
+			//		//Debug.Log("Ceil");
+			//		break;
+			//}
+
+			if(!((MapDataBySectionDivision)this.m_GeneratedMapBase).IsNotExistsObject(nextArrayPos, false)) {
+				//Debug.Log($"x={nextArrayPos.x}, y={nextArrayPos.y}");
+				return false;
 			}
 
 			return checkFlag;
@@ -266,7 +271,9 @@ namespace Assets.Scripts.Roguelike {
 					RadioHorizontalMove();
 				} else {
 					RadioVertexMove();
+					this.StartCoroutine(this.moveSmoothAnimation(m_Target));
 				}
+				return;
 			}
 
 			//水平方向のみ入力されているかどうか
@@ -277,6 +284,7 @@ namespace Assets.Scripts.Roguelike {
 			//垂直方向のみ入力されているかどうか
 			if(!m_InputHorizontalFlag && m_InputVerticalFlag) {
 				RadioVertexMove();
+				this.StartCoroutine(this.moveSmoothAnimation(m_Target));
 			}
 		}
 
@@ -453,6 +461,8 @@ namespace Assets.Scripts.Roguelike {
 				this.transform.position += new Vector3(oneDelta.x, oneDelta.y);
 				yield return new WaitForEndOfFrame();
 			}
+
+			this.enabled = false;
 		}
 
         /// <summary>
@@ -465,6 +475,12 @@ namespace Assets.Scripts.Roguelike {
             {
                 //HPを１減らす
                 m_Hp--;
+
+				if(this.m_Hp <= 0) {
+					GameObject.Find("FadeCanvas").GetComponent<Fade>().FadeIn(1.0f, () => {
+						UnityEngine.SceneManagement.SceneManager.LoadScene("TitleScene");
+					});
+				}
             }
         }
 
