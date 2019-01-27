@@ -21,7 +21,7 @@ namespace Assets.Scripts.Roguelike {
 		/// <summary>
 		/// マップ、プレイヤー、エネミー、アイテム、ギミック情報
 		/// </summary>
-		private MapManager mapManager;
+		public MapManager mapManager;
 
 		/// <summary>
 		/// プレイヤーのターンであるかどうか
@@ -50,10 +50,15 @@ namespace Assets.Scripts.Roguelike {
 		/// </summary>
 		private void Update() {
 			if(this.isPlayerTurn) {
-				// プレイヤーのターン
+				// TODO: プレイヤーのターン
+				// プレイヤーの入力＆移動を有効化
+				this.Player1Instance.m_IsMove = true;
+				this.Player1Instance.enabled = true;
+
+				// 敵の行動を無効化
 				
 			} else {
-				// エネミーのターン
+				// TODO: エネミーのターン
 
 			}
 		}
