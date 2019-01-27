@@ -41,7 +41,11 @@ namespace Assets.Scripts.Roguelike {
 		private bool m_InputVerticalFlag = false;  //垂直方向に入力できているのか
 
 		private Vector3 m_Target;  //移動先
-		private Vector2Int m_PlayerArrayPos;  //現在のプレイヤーの配列内位置
+
+		public Vector2Int m_PlayerArrayPos {  //現在のプレイヤーの配列内位置
+			get;
+			private set;
+		}
 
 		//[SerializeField]
 		private float m_MoveAmount = 1.0f;  //移動するときの移動量
@@ -61,16 +65,20 @@ namespace Assets.Scripts.Roguelike {
 		public LookDirection m_LookDirection {
 			get;
 			private set;
-		} = LookDirection.DOWN;  //自分が向いている方向
+		} = LookDirection.UP;  //自分が向いている方向
 
-		[SerializeField]
-		private bool m_IsMove = false;  //動けるかのフラグ
+		
+		public bool m_IsMove = false;  //動けるかのフラグ
 
 
 		private bool m_InputReturnWaitFlag = false;  //入力値が０に戻るのを待っているかどうかのフラグ
 
 		[SerializeField]
 		private Animator animator;
+
+        private int m_Hp = 3;  //このプレイヤーの体力
+        //getter
+        public int GetHp() { return m_Hp; }
 
 		#region Main
 
@@ -157,6 +165,10 @@ namespace Assets.Scripts.Roguelike {
 			Vector2Int nextArrayPos = m_GeneratedMapBase.GetNextDirectionPosition(m_PlayerArrayPos, direction);
 
 			//次に移動する配列番地にあるタイルの取得
+			if(m_GeneratedMapBase.DungeonRect.width <= nextArrayPos.x || m_GeneratedMapBase.DungeonRect.height <= nextArrayPos.y) {
+				// マップからはみ出してしまう
+				return false;
+			}
 			GeneratedMapTile tile = m_MapData[nextArrayPos.x, nextArrayPos.y];
 
 			bool checkFlag = true;  //チェック結果
@@ -414,8 +426,8 @@ namespace Assets.Scripts.Roguelike {
 		/// <param name="x"></param>
 		/// <param name="y"></param>
 		private void ArrayPosMove(int x, int y) {
-			m_PlayerArrayPos.x += x;
-			m_PlayerArrayPos.y += y;
+			this.m_PlayerArrayPos = new Vector2Int(this.m_PlayerArrayPos.x + x, this.m_PlayerArrayPos.y);
+			this.m_PlayerArrayPos = new Vector2Int(this.m_PlayerArrayPos.x, this.m_PlayerArrayPos.y + y);
 		}
 
 		/// <summary>
@@ -442,6 +454,28 @@ namespace Assets.Scripts.Roguelike {
 				yield return new WaitForEndOfFrame();
 			}
 		}
+
+        /// <summary>
+        /// ダメージ処理
+        /// </summary>
+        public void Damage()
+        {
+            //すでにHPがないかどうか
+            if(m_Hp > 0)
+            {
+                //HPを１減らす
+                m_Hp--;
+            }
+        }
+
+        /// <summary>
+        /// 回復
+        /// </summary>
+        /// <param name="point"></param>
+        public void Recovery(int point)
+        {
+            m_Hp += point;
+        }
 
 		#endregion Debug
 	}

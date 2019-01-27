@@ -721,6 +721,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dcfaa309a99c1ce41afde2d2b6c9cd09, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  mapManager: {fileID: 615914131}
 --- !u!1 &908460252
 GameObject:
   m_ObjectHideFlags: 0
@@ -1925,7 +1926,7 @@ MonoBehaviour:
   m_RightSprite: {fileID: 21300000, guid: ced312f68f084864e97b6406a6528dd7, type: 3}
   m_InputThreshold: 0.5
   m_IsMove: 0
-  animator: {fileID: 0}
+  animator: {fileID: 1947114537}
 --- !u!212 &1947114535
 SpriteRenderer:
   m_ObjectHideFlags: 0
